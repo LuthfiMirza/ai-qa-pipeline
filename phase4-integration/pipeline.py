@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import subprocess
 import sys
 import time
@@ -92,6 +93,42 @@ class QAPipeline:
             "compare",
         ]
         return self._run_command("Visual Regression", command, self.phase4_dir)
+
+
+    def step_self_healing_test(self) -> StepResult:
+        phase_dir = self.root_dir / "phase3-ai" / "c-self-healing"
+        started = time.perf_counter()
+        command = [sys.executable, "run_healing_test.py"]
+        command_text = " ".join(command)
+
+        if self.dry_run:
+            print(f"DRY-RUN Self-Healing Test: cd {phase_dir} && {command_text}")
+            return StepResult("Self-Healing Test", "SKIP", 0.0, command_text, "dry-run")
+
+        if not phase_dir.exists():
+            return StepResult("Self-Healing Test", "FAIL", 0.0, "", f"Missing directory: {phase_dir}")
+
+        completed = subprocess.run(command, cwd=phase_dir, text=True, capture_output=True, check=False)
+        duration = time.perf_counter() - started
+        try:
+            payload = json.loads(completed.stdout.strip().splitlines()[-1])
+            status = payload.get("status", "PASS" if completed.returncode == 0 else "FAIL")
+            output = (
+                f"passed={payload.get('passed', 0)}, "
+                f"failed={payload.get('failed', 0)}, "
+                f"heal_count={payload.get('heal_count', 0)}"
+            )
+        except (IndexError, json.JSONDecodeError):
+            status = "PASS" if completed.returncode == 0 else "FAIL"
+            output = completed.stdout[-4000:]
+
+        return StepResult(
+            name="Self-Healing Test",
+            status=status,
+            duration_sec=duration,
+            output=output,
+            error=completed.stderr[-4000:],
+        )
 
     def step_anomaly_detection(self) -> StepResult:
         phase_dir = self.root_dir / "phase3-ai" / "d-anomaly-detection"
@@ -205,6 +242,11 @@ python phase4-integration/pipeline.py --config phase4-integration/pipeline_confi
             results.append(self.step_visual_regression())
         else:
             results.append(StepResult("Visual Regression", "SKIP", 0.0, "", "disabled by config"))
+
+        if steps.get("run_self_healing", False):
+            results.append(self.step_self_healing_test())
+        else:
+            results.append(StepResult("Self-Healing Test", "SKIP", 0.0, "", "disabled by config"))
 
         if steps.get("run_anomaly", False):
             results.append(self.step_anomaly_detection())
