@@ -1,0 +1,18 @@
+target_urls:
+  - https://example.com
+  - https://practicetestautomation.com/practice-test-login/
+
+thresholds:
+  ssim: 0.95
+  anomaly_contamination: 0.05
+  max_error_rate: 0.1
+
+paths:
+  baseline_dir: ../phase3-ai/b-visual-regression/baselines
+  log_dir: ../phase3-ai/d-anomaly-detection/sample_logs
+  report_dir: reports
+
+steps:
+  run_test_generation: true
+  run_visual: true
+  run_anomaly: true

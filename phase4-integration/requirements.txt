@@ -1,0 +1,13 @@
+pytest
+pytest-html
+pytest-cov
+pytest-playwright
+playwright
+opencv-python
+scikit-image
+scikit-learn
+pandas
+numpy
+pyyaml
+joblib
+matplotlib
