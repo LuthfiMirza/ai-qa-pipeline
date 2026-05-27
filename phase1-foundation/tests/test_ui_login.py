@@ -6,6 +6,8 @@ except ModuleNotFoundError:
     Page = object
     expect = None
     pytestmark = pytest.mark.skip(reason="playwright is not installed")
+else:
+    pytestmark = pytest.mark.ui
 
 LOGIN_URL = "https://practicetestautomation.com/practice-test-login/"
 VALID_USERNAME = "student"
@@ -14,67 +16,75 @@ INVALID_USERNAME = "wrong_user"
 INVALID_PASSWORD = "wrong_password"
 
 
-@pytest.fixture
-def login_page(page: Page):
+def open_login_page(page: Page) -> None:
     page.goto(LOGIN_URL)
-    return page
 
 
-def test_login_page_title(login_page: Page):
-    expect(login_page).to_have_title("Test Login | Practice Test Automation")
+def test_login_page_title(page: Page):
+    open_login_page(page)
+    expect(page).to_have_title("Test Login | Practice Test Automation")
 
 
-def test_login_page_has_username_field(login_page: Page):
-    expect(login_page.locator("#username")).to_be_visible()
+def test_login_page_has_username_field(page: Page):
+    open_login_page(page)
+    expect(page.locator("#username")).to_be_visible()
 
 
-def test_login_page_has_password_field(login_page: Page):
-    expect(login_page.locator("#password")).to_be_visible()
+def test_login_page_has_password_field(page: Page):
+    open_login_page(page)
+    expect(page.locator("#password")).to_be_visible()
 
 
-def test_login_page_has_submit_button(login_page: Page):
-    expect(login_page.locator("#submit")).to_be_visible()
+def test_login_page_has_submit_button(page: Page):
+    open_login_page(page)
+    expect(page.locator("#submit")).to_be_visible()
 
 
-def test_login_success_with_valid_credentials(login_page: Page):
-    login_page.locator("#username").fill(VALID_USERNAME)
-    login_page.locator("#password").fill(VALID_PASSWORD)
-    login_page.locator("#submit").click()
+def test_login_success_with_valid_credentials(page: Page):
+    open_login_page(page)
+    page.locator("#username").fill(VALID_USERNAME)
+    page.locator("#password").fill(VALID_PASSWORD)
+    page.locator("#submit").click()
 
-    expect(login_page).to_have_url("https://practicetestautomation.com/logged-in-successfully/")
-    expect(login_page.locator("h1")).to_contain_text("Logged In Successfully")
-    expect(login_page.locator(".wp-block-button__link")).to_contain_text("Log out")
-
-
-def test_login_fails_with_invalid_username(login_page: Page):
-    login_page.locator("#username").fill(INVALID_USERNAME)
-    login_page.locator("#password").fill(VALID_PASSWORD)
-    login_page.locator("#submit").click()
-
-    expect(login_page.locator("#error")).to_be_visible()
-    expect(login_page.locator("#error")).to_contain_text("Your username is invalid")
+    expect(page).to_have_url("https://practicetestautomation.com/logged-in-successfully/")
+    expect(page.locator("h1")).to_contain_text("Logged In Successfully")
+    expect(page.locator(".wp-block-button__link")).to_contain_text("Log out")
 
 
-def test_login_fails_with_invalid_password(login_page: Page):
-    login_page.locator("#username").fill(VALID_USERNAME)
-    login_page.locator("#password").fill(INVALID_PASSWORD)
-    login_page.locator("#submit").click()
+def test_login_fails_with_invalid_username(page: Page):
+    open_login_page(page)
+    page.locator("#username").fill(INVALID_USERNAME)
+    page.locator("#password").fill(VALID_PASSWORD)
+    page.locator("#submit").click()
 
-    expect(login_page.locator("#error")).to_be_visible()
-    expect(login_page.locator("#error")).to_contain_text("Your password is invalid")
-
-
-def test_login_fails_with_empty_credentials(login_page: Page):
-    login_page.locator("#submit").click()
-
-    expect(login_page.locator("#error")).to_be_visible()
+    expect(page.locator("#error")).to_be_visible()
+    expect(page.locator("#error")).to_contain_text("Your username is invalid")
 
 
-def test_username_field_accepts_text(login_page: Page):
-    login_page.locator("#username").fill("sample_user")
-    expect(login_page.locator("#username")).to_have_value("sample_user")
+def test_login_fails_with_invalid_password(page: Page):
+    open_login_page(page)
+    page.locator("#username").fill(VALID_USERNAME)
+    page.locator("#password").fill(INVALID_PASSWORD)
+    page.locator("#submit").click()
+
+    expect(page.locator("#error")).to_be_visible()
+    expect(page.locator("#error")).to_contain_text("Your password is invalid")
 
 
-def test_password_field_accepts_text(login_page: Page):
-    login_page.locator("#password").fill("secret")
-    expect(login_page.locator("#password")).to_have_value("secret")
+def test_login_fails_with_empty_credentials(page: Page):
+    open_login_page(page)
+    page.locator("#submit").click()
+
+    expect(page.locator("#error")).to_be_visible()
+
+
+def test_username_field_accepts_text(page: Page):
+    open_login_page(page)
+    page.locator("#username").fill("sample_user")
+    expect(page.locator("#username")).to_have_value("sample_user")
+
+
+def test_password_field_accepts_text(page: Page):
+    open_login_page(page)
+    page.locator("#password").fill("secret")
+    expect(page.locator("#password")).to_have_value("secret")
