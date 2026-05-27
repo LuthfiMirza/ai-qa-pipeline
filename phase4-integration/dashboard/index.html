@@ -2,48 +2,53 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI-Assisted QA Pipeline Dashboard</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 32px; color: #1f2937; background: #f8fafc; }
-    h1, h2 { color: #111827; }
-    .summary { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; margin: 20px 0; }
-    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; }
-    .value { font-size: 28px; font-weight: 700; }
+    .summary { display: flex; gap: 12px; margin: 16px 0; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; min-width: 120px; }
+    .value { display: block; font-size: 28px; font-weight: 700; }
     table { width: 100%; border-collapse: collapse; background: #fff; }
-    th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
+    th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
     th { background: #f3f4f6; text-align: left; }
-    code, pre { background: #111827; color: #f9fafb; border-radius: 6px; padding: 2px 5px; }
-    pre { padding: 16px; overflow-x: auto; }
     .status { color: #fff; border-radius: 999px; padding: 4px 10px; font-weight: 700; }
     .pass { background: #16a34a; }
     .fail { background: #dc2626; }
     .skip { background: #6b7280; }
+    pre { white-space: pre-wrap; background: #111827; color: #f9fafb; padding: 10px; border-radius: 6px; }
   </style>
 </head>
 <body>
   <h1>AI-Assisted QA Pipeline Dashboard</h1>
-  <p>Generated at 2026-05-27T08:24:00</p>
-
-  <h2>Summary</h2>
-  <div class="summary">
-    <div class="card"><div>Total Steps</div><div class="value">4</div></div>
-    <div class="card"><div>Pass</div><div class="value">0</div></div>
-    <div class="card"><div>Fail</div><div class="value">0</div></div>
-    <div class="card"><div>Skip</div><div class="value">4</div></div>
-  </div>
-
-  <h2>Step Results</h2>
-  <table>
-    <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Detail Report</th><th>Command / Message</th></tr></thead>
-    <tbody><tr><td>Generate Tests</td><td><span class="status skip">SKIP</span></td><td>0.00s</td><td><a href="/Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/a-test-generation/examples/generated_tests">/Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/a-test-generation/examples/generated_tests</a></td><td><code>/Library/Developer/CommandLineTools/usr/bin/python3 generator.py User can login with valid credentials and sees an error for invalid credentials.</code><br>Dry-run: would execute in /Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/a-test-generation</td></tr><tr><td>Run Tests</td><td><span class="status skip">SKIP</span></td><td>0.00s</td><td><a href="/Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase2-automation/reports">/Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase2-automation/reports</a></td><td><code>/Library/Developer/CommandLineTools/usr/bin/python3 -m pytest /Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase2-automation</code><br>Dry-run: would execute in /Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline</td></tr><tr><td>Visual Regression</td><td><span class="status skip">SKIP</span></td><td>0.00s</td><td><a href="/Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/b-visual-regression/reports">/Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/b-visual-regression/reports</a></td><td><code>/Library/Developer/CommandLineTools/usr/bin/python3 screenshot_runner.py --url https://example.com --mode compare</code><br>Dry-run: would execute in /Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/b-visual-regression</td></tr><tr><td>Anomaly Detection</td><td><span class="status skip">SKIP</span></td><td>0.00s</td><td><a href="/Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/d-anomaly-detection/reports">/Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/d-anomaly-detection/reports</a></td><td><code>/Library/Developer/CommandLineTools/usr/bin/python3 anomaly_detector.py --log /Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/d-anomaly-detection/sample_logs/app.log</code><br>Dry-run: would execute in /Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/d-anomaly-detection</td></tr></tbody>
-  </table>
-
-  <h2>Cara Eksekusi Manual</h2>
-  <pre>cd phase3-ai/a-test-generation && python prompt_builder.py --input examples/input_requirements.txt --output examples/exported_prompt.md
-cd phase2-automation && pytest
-cd phase3-ai/b-visual-regression && python screenshot_runner.py --url https://example.com --mode compare
-cd phase3-ai/d-anomaly-detection && python anomaly_detector.py --log sample_logs/app.log
-cd phase4-integration && python pipeline.py --config pipeline_config.yaml</pre>
+  <section>
+    <h2>Summary</h2>
+    <div class="summary">
+      <div class="card">Total<span class="value">4</span></div>
+      <div class="card">Pass<span class="value">0</span></div>
+      <div class="card">Fail<span class="value">0</span></div>
+      <div class="card">Skip<span class="value">4</span></div>
+    </div>
+  </section>
+  <section>
+    <h2>Step Results</h2>
+    <table>
+      <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Output</th></tr></thead>
+      <tbody>
+        <tr><td>Generate Tests</td><td><span class="status skip">SKIP</span></td><td>0.00s</td><td><pre>/Library/Developer/CommandLineTools/usr/bin/python3 generator.py --requirement User dapat login dengan email dan password --export-prompt --json-only</pre></td></tr>
+<tr><td>Unit Tests</td><td><span class="status skip">SKIP</span></td><td>0.00s</td><td><pre>/Library/Developer/CommandLineTools/usr/bin/python3 -m pytest tests/test_calculator.py -v</pre></td></tr>
+<tr><td>Visual Regression</td><td><span class="status skip">SKIP</span></td><td>0.00s</td><td><pre>disabled by config</pre></td></tr>
+<tr><td>Anomaly Detection</td><td><span class="status skip">SKIP</span></td><td>0.00s</td><td><pre>/Library/Developer/CommandLineTools/usr/bin/python3 anomaly_detector.py --log /Applications/XAMPP/xamppfiles/htdocs/AI-Powered QA Pipeline/phase3-ai/d-anomaly-detection/sample_logs/app.log</pre></td></tr>
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>Cara Jalankan Manual</h2>
+    <pre>python phase4-integration/pipeline.py --config phase4-integration/pipeline_config.yaml
+python phase4-integration/pipeline.py --config phase4-integration/pipeline_config.yaml --dry-run</pre>
+  </section>
+  <section>
+    <h2>Komponen ML</h2>
+    <p>Fase 3A memakai rule-based generation dan prompt export. Fase 3B memakai SSIM untuk visual regression. Fase 3C memakai fallback strategy chain untuk self-healing locator. Fase 3D memakai Isolation Forest untuk anomaly detection dari log.</p>
+  </section>
 </body>
 </html>

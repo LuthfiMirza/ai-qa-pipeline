@@ -5,21 +5,38 @@ from pathlib import Path
 from typing import Any
 
 
-class Notifier:
-    def __init__(self, log_path: str | Path = "logs/pipeline_notifications.log"):
-        self.log_path = Path(log_path)
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+def _get_value(result: Any, key: str, default: Any = None) -> Any:
+    if isinstance(result, dict):
+        return result.get(key, default)
+    return getattr(result, key, default)
 
-    def notify(self, message: str, level: str = "INFO") -> None:
-        timestamp = datetime.now().isoformat(timespec="seconds")
-        line = f"[{timestamp}] {level.upper()} {message}"
-        print(line)
-        with self.log_path.open("a", encoding="utf-8") as file:
-            file.write(line + "\n")
 
-    def summary(self, summary: dict[str, Any]) -> None:
-        total = summary.get("total", 0)
-        passed = summary.get("passed", 0)
-        failed = summary.get("failed", 0)
-        skipped = summary.get("skipped", 0)
-        self.notify(f"Pipeline summary: total={total}, pass={passed}, fail={failed}, skip={skipped}")
+def notify(results: list[Any], report_path: str) -> None:
+    pass_count = sum(1 for result in results if _get_value(result, "status") == "PASS")
+    fail_count = sum(1 for result in results if _get_value(result, "status") == "FAIL")
+    skip_count = sum(1 for result in results if _get_value(result, "status") == "SKIP")
+
+    lines = [
+        "STEP              STATUS    DURATION",
+        "─────────────────────────────────────",
+    ]
+    for result in results:
+        name = str(_get_value(result, "name", ""))[:17]
+        status = str(_get_value(result, "status", ""))
+        duration = float(_get_value(result, "duration_sec", 0.0))
+        lines.append(f"{name:<17} {status:<8} {duration:.1f}s")
+    lines.extend(
+        [
+            "─────────────────────────────────────",
+            f"TOTAL: {pass_count} PASS, {fail_count} FAIL, {skip_count} SKIP",
+            f"REPORT: {report_path}",
+        ]
+    )
+
+    output = "\n".join(lines)
+    print(output)
+
+    log_dir = Path("logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    (log_dir / f"pipeline_{timestamp}.log").write_text(output + "\n", encoding="utf-8")

@@ -2,316 +2,223 @@ from __future__ import annotations
 
 import argparse
 import html
-import json
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import yaml
 
-from notifier import Notifier
-
-STATUS_PASS = "PASS"
-STATUS_FAIL = "FAIL"
-STATUS_SKIP = "SKIP"
+from notifier import notify
 
 
 @dataclass
 class StepResult:
     name: str
     status: str
-    duration: float
-    command: list[str]
-    output_path: str | None = None
-    message: str = ""
-    returncode: int | None = None
-    stdout: str = ""
-    stderr: str = ""
+    duration_sec: float
+    output: str
+    error: str
 
 
 class QAPipeline:
-    def __init__(self, config_path: str | Path, dry_run: bool = False):
-        self.root_dir = Path(__file__).resolve().parents[1]
+    def __init__(self, config_path: str):
         self.phase4_dir = Path(__file__).resolve().parent
+        self.root_dir = self.phase4_dir.parent
         self.config_path = Path(config_path)
-        self.config = self.load_config(self.config_path)
-        self.dry_run = dry_run
-        self.results: list[StepResult] = []
-        self.report_dir = self._resolve_phase4_path(self.config["paths"].get("report_dir", "reports"))
-        self.report_dir.mkdir(parents=True, exist_ok=True)
-        self.notifier = Notifier(self.phase4_dir / "logs" / "pipeline_notifications.log")
+        if not self.config_path.is_absolute():
+            self.config_path = (Path.cwd() / self.config_path).resolve()
+        self.config = self._load_config(self.config_path)
+        self.dry_run = False
 
     @staticmethod
-    def load_config(yaml_path: str | Path) -> dict[str, Any]:
-        path = Path(yaml_path)
-        with path.open("r", encoding="utf-8") as file:
-            config = yaml.safe_load(file) or {}
-        config.setdefault("target_urls", [])
-        config.setdefault("thresholds", {})
-        config.setdefault("paths", {})
-        config.setdefault("steps", {})
-        return config
+    def _load_config(config_path: Path) -> dict:
+        with config_path.open("r", encoding="utf-8") as file:
+            return yaml.safe_load(file) or {}
 
-    def _resolve_root_path(self, path: str | Path) -> Path:
-        raw_path = Path(path)
-        if raw_path.is_absolute():
-            return raw_path
-        return (self.phase4_dir / raw_path).resolve()
+    def _run_command(self, name: str, command: list[str], cwd: Path) -> StepResult:
+        started = time.perf_counter()
+        command_text = " ".join(command)
 
-    def _resolve_phase4_path(self, path: str | Path) -> Path:
-        raw_path = Path(path)
-        if raw_path.is_absolute():
-            return raw_path
-        return (self.phase4_dir / raw_path).resolve()
-
-    def _record_skip(self, name: str, message: str, command: list[str] | None = None) -> StepResult:
-        result = StepResult(name=name, status=STATUS_SKIP, duration=0.0, command=command or [], message=message)
-        self.results.append(result)
-        self.notifier.notify(f"{name}: {message}", level="WARNING")
-        return result
-
-    def _run_subprocess(self, name: str, command: list[str], cwd: Path, output_path: str | Path | None = None) -> StepResult:
         if self.dry_run:
-            result = StepResult(
-                name=name,
-                status=STATUS_SKIP,
-                duration=0.0,
-                command=command,
-                output_path=str(output_path) if output_path else None,
-                message=f"Dry-run: would execute in {cwd}",
-            )
-            self.results.append(result)
-            self.notifier.notify(f"DRY-RUN {name}: {' '.join(command)}")
-            return result
+            print(f"DRY-RUN {name}: cd {cwd} && {command_text}")
+            return StepResult(name=name, status="SKIP", duration_sec=0.0, output=command_text, error="dry-run")
 
         if not cwd.exists():
-            return self._record_skip(name, f"Working directory not found: {cwd}", command)
+            return StepResult(name=name, status="FAIL", duration_sec=0.0, output="", error=f"Missing directory: {cwd}")
 
-        started = time.perf_counter()
-        completed = subprocess.run(command, cwd=cwd, text=True, capture_output=True)
+        try:
+            completed = subprocess.run(command, cwd=cwd, text=True, capture_output=True, check=False)
+        except OSError as exc:
+            return StepResult(name=name, status="FAIL", duration_sec=0.0, output="", error=str(exc))
+
         duration = time.perf_counter() - started
-        status = STATUS_PASS if completed.returncode == 0 else STATUS_FAIL
-        result = StepResult(
+        status = "PASS" if completed.returncode == 0 else "FAIL"
+        return StepResult(
             name=name,
             status=status,
-            duration=duration,
-            command=command,
-            output_path=str(output_path) if output_path else None,
-            message="Command completed" if status == STATUS_PASS else "Command failed",
-            returncode=completed.returncode,
-            stdout=completed.stdout[-4000:],
-            stderr=completed.stderr[-4000:],
+            duration_sec=duration,
+            output=completed.stdout[-4000:],
+            error=completed.stderr[-4000:],
         )
-        self.results.append(result)
-        self.notifier.notify(f"{name}: {status} in {duration:.2f}s", level="INFO" if status == STATUS_PASS else "ERROR")
-        return result
 
-    def step_generate_tests(self, requirement_text: str) -> StepResult:
-        if not self.config["steps"].get("run_test_generation", True):
-            return self._record_skip("Generate Tests", "Disabled by config")
-
+    def step_generate_tests(self) -> StepResult:
         phase_dir = self.root_dir / "phase3-ai" / "a-test-generation"
-        generator = phase_dir / "generator.py"
-        prompt_builder = phase_dir / "prompt_builder.py"
-        script = generator if generator.exists() else prompt_builder
-        output_path = phase_dir / "examples" / "generated_tests"
+        requirement = self.config.get("sample_requirement", "User dapat login dengan email dan password")
+        command = [
+            sys.executable,
+            "generator.py",
+            "--requirement",
+            requirement,
+            "--export-prompt",
+            "--json-only",
+        ]
+        return self._run_command("Generate Tests", command, phase_dir)
 
-        if self.dry_run:
-            command = [sys.executable, script.name, requirement_text]
-            return self._run_subprocess("Generate Tests", command, phase_dir, output_path)
-
-        if not script.exists():
-            return self._record_skip("Generate Tests", f"Generator script not found: {generator} or {prompt_builder}")
-
-        command = [sys.executable, script.name, requirement_text]
-        return self._run_subprocess("Generate Tests", command, phase_dir, output_path)
-
-    def step_run_tests(self) -> StepResult:
-        phase_dir = self.root_dir / "phase2-automation"
-        output_path = phase_dir / "reports"
-        command = [sys.executable, "-m", "pytest", str(phase_dir)]
-
-        if self.dry_run:
-            return self._run_subprocess("Run Tests", command, self.root_dir, output_path)
-
-        if not phase_dir.exists():
-            return self._record_skip("Run Tests", f"Phase 2 folder not found: {phase_dir}")
-
-        return self._run_subprocess("Run Tests", command, self.root_dir, output_path)
+    def step_run_unit_tests(self) -> StepResult:
+        phase_dir = self.root_dir / "phase1-foundation"
+        command = [sys.executable, "-m", "pytest", "tests/test_calculator.py", "-v"]
+        return self._run_command("Unit Tests", command, phase_dir)
 
     def step_visual_regression(self) -> StepResult:
-        if not self.config["steps"].get("run_visual", True):
-            return self._record_skip("Visual Regression", "Disabled by config")
-
         phase_dir = self.root_dir / "phase3-ai" / "b-visual-regression"
-        runner = phase_dir / "screenshot_runner.py"
+        target_url = self.config.get("target_urls", ["https://example.com"])[0]
+        command = [sys.executable, "screenshot_runner.py", "--url", target_url, "--mode", "compare"]
+        return self._run_command("Visual Regression", command, phase_dir)
 
-        target_urls = self.config.get("target_urls", [])
-        first_url = target_urls[0] if target_urls else "https://example.com"
-        output_path = phase_dir / "reports"
-        command = [sys.executable, runner.name, "--url", first_url, "--mode", "compare"]
-
-        if self.dry_run:
-            return self._run_subprocess("Visual Regression", command, phase_dir, output_path)
-
-        if not runner.exists():
-            return self._record_skip("Visual Regression", f"Runner script not found: {runner}")
-
-        return self._run_subprocess("Visual Regression", command, phase_dir, output_path)
-
-    def step_anomaly_detection(self, log_path: str | Path | None = None) -> StepResult:
-        if not self.config["steps"].get("run_anomaly", True):
-            return self._record_skip("Anomaly Detection", "Disabled by config")
-
+    def step_anomaly_detection(self) -> StepResult:
         phase_dir = self.root_dir / "phase3-ai" / "d-anomaly-detection"
-        detector = phase_dir / "anomaly_detector.py"
+        log_path = phase_dir / "sample_logs" / "app.log"
+        if not self.dry_run and not log_path.exists():
+            generate_result = self._run_command("Generate Sample Log", [sys.executable, "generate_sample_log.py"], phase_dir)
+            if generate_result.status != "PASS":
+                return StepResult(
+                    name="Anomaly Detection",
+                    status="FAIL",
+                    duration_sec=generate_result.duration_sec,
+                    output=generate_result.output,
+                    error=generate_result.error,
+                )
+        command = [sys.executable, "anomaly_detector.py", "--log", str(log_path)]
+        return self._run_command("Anomaly Detection", command, phase_dir)
 
-        configured_log_dir = self._resolve_root_path(self.config["paths"].get("log_dir", "../phase3-ai/d-anomaly-detection/sample_logs"))
-        selected_log = Path(log_path) if log_path else configured_log_dir / "app.log"
-        if not selected_log.is_absolute():
-            selected_log = (self.phase4_dir / selected_log).resolve()
-        output_path = phase_dir / "reports"
-        command = [sys.executable, detector.name, "--log", str(selected_log)]
-
-        if self.dry_run:
-            return self._run_subprocess("Anomaly Detection", command, phase_dir, output_path)
-
-        if not detector.exists():
-            return self._record_skip("Anomaly Detection", f"Detector script not found: {detector}")
-
-        return self._run_subprocess("Anomaly Detection", command, phase_dir, output_path)
-
-    def step_generate_report(self) -> StepResult:
-        started = time.perf_counter()
-        report_path = self.report_dir / "unified_pipeline_report.html"
+    def step_generate_report(self, all_results: list[StepResult]) -> str:
+        report_dir = self.phase4_dir / self.config.get("paths", {}).get("report_dir", "reports")
         dashboard_path = self.phase4_dir / "dashboard" / "index.html"
+        report_dir.mkdir(parents=True, exist_ok=True)
         dashboard_path.parent.mkdir(parents=True, exist_ok=True)
 
-        summary = self._summary_counts()
-        html_content = self._render_report(summary)
-        report_path.write_text(html_content, encoding="utf-8")
-        dashboard_path.write_text(html_content, encoding="utf-8")
+        total = len(all_results)
+        passed = sum(1 for result in all_results if result.status == "PASS")
+        failed = sum(1 for result in all_results if result.status == "FAIL")
+        skipped = sum(1 for result in all_results if result.status == "SKIP")
 
-        result = StepResult(
-            name="Generate Unified Report",
-            status=STATUS_PASS,
-            duration=time.perf_counter() - started,
-            command=[],
-            output_path=str(report_path),
-            message=f"Dashboard updated: {dashboard_path}",
+        rows = "\n".join(
+            "<tr>"
+            f"<td>{html.escape(result.name)}</td>"
+            f"<td><span class=\"status {result.status.lower()}\">{html.escape(result.status)}</span></td>"
+            f"<td>{result.duration_sec:.2f}s</td>"
+            f"<td><pre>{html.escape(result.output or result.error)}</pre></td>"
+            "</tr>"
+            for result in all_results
         )
-        self.results.append(result)
-        self.notifier.notify(f"Unified report generated: {report_path}")
-        return result
 
-    def _summary_counts(self) -> dict[str, int]:
-        pass_count = sum(1 for result in self.results if result.status == STATUS_PASS)
-        fail_count = sum(1 for result in self.results if result.status == STATUS_FAIL)
-        skip_count = sum(1 for result in self.results if result.status == STATUS_SKIP)
-        return {
-            "total": len(self.results),
-            "passed": pass_count,
-            "failed": fail_count,
-            "skipped": skip_count,
-        }
-
-    def _render_report(self, summary: dict[str, int]) -> str:
-        rows = []
-        for result in self.results:
-            css_class = result.status.lower()
-            command = " ".join(result.command) if result.command else "-"
-            output = result.output_path or "-"
-            output_cell = f'<a href="{html.escape(output)}">{html.escape(output)}</a>' if output != "-" else "-"
-            rows.append(
-                "<tr>"
-                f'<td>{html.escape(result.name)}</td>'
-                f'<td><span class="status {css_class}">{html.escape(result.status)}</span></td>'
-                f"<td>{result.duration:.2f}s</td>"
-                f"<td>{output_cell}</td>"
-                f"<td><code>{html.escape(command)}</code><br>{html.escape(result.message)}</td>"
-                "</tr>"
-            )
-
-        generated_at = datetime.now().isoformat(timespec="seconds")
-        return f"""<!doctype html>
+        content = f"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI-Assisted QA Pipeline Dashboard</title>
   <style>
     body {{ font-family: Arial, sans-serif; margin: 32px; color: #1f2937; background: #f8fafc; }}
-    h1, h2 {{ color: #111827; }}
-    .summary {{ display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; margin: 20px 0; }}
-    .card {{ background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; }}
-    .value {{ font-size: 28px; font-weight: 700; }}
+    .summary {{ display: flex; gap: 12px; margin: 16px 0; }}
+    .card {{ background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; min-width: 120px; }}
+    .value {{ display: block; font-size: 28px; font-weight: 700; }}
     table {{ width: 100%; border-collapse: collapse; background: #fff; }}
-    th, td {{ border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }}
+    th, td {{ border: 1px solid #ddd; padding: 8px; vertical-align: top; }}
     th {{ background: #f3f4f6; text-align: left; }}
-    code, pre {{ background: #111827; color: #f9fafb; border-radius: 6px; padding: 2px 5px; }}
-    pre {{ padding: 16px; overflow-x: auto; }}
     .status {{ color: #fff; border-radius: 999px; padding: 4px 10px; font-weight: 700; }}
     .pass {{ background: #16a34a; }}
     .fail {{ background: #dc2626; }}
     .skip {{ background: #6b7280; }}
+    pre {{ white-space: pre-wrap; background: #111827; color: #f9fafb; padding: 10px; border-radius: 6px; }}
   </style>
 </head>
 <body>
   <h1>AI-Assisted QA Pipeline Dashboard</h1>
-  <p>Generated at {html.escape(generated_at)}</p>
-
-  <h2>Summary</h2>
-  <div class="summary">
-    <div class="card"><div>Total Steps</div><div class="value">{summary['total']}</div></div>
-    <div class="card"><div>Pass</div><div class="value">{summary['passed']}</div></div>
-    <div class="card"><div>Fail</div><div class="value">{summary['failed']}</div></div>
-    <div class="card"><div>Skip</div><div class="value">{summary['skipped']}</div></div>
-  </div>
-
-  <h2>Step Results</h2>
-  <table>
-    <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Detail Report</th><th>Command / Message</th></tr></thead>
-    <tbody>{''.join(rows)}</tbody>
-  </table>
-
-  <h2>Cara Eksekusi Manual</h2>
-  <pre>cd phase3-ai/a-test-generation && python prompt_builder.py --input examples/input_requirements.txt --output examples/exported_prompt.md
-cd phase2-automation && pytest
-cd phase3-ai/b-visual-regression && python screenshot_runner.py --url https://example.com --mode compare
-cd phase3-ai/d-anomaly-detection && python anomaly_detector.py --log sample_logs/app.log
-cd phase4-integration && python pipeline.py --config pipeline_config.yaml</pre>
+  <section>
+    <h2>Summary</h2>
+    <div class="summary">
+      <div class="card">Total<span class="value">{total}</span></div>
+      <div class="card">Pass<span class="value">{passed}</span></div>
+      <div class="card">Fail<span class="value">{failed}</span></div>
+      <div class="card">Skip<span class="value">{skipped}</span></div>
+    </div>
+  </section>
+  <section>
+    <h2>Step Results</h2>
+    <table>
+      <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Output</th></tr></thead>
+      <tbody>
+        {rows}
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>Cara Jalankan Manual</h2>
+    <pre>python phase4-integration/pipeline.py --config phase4-integration/pipeline_config.yaml
+python phase4-integration/pipeline.py --config phase4-integration/pipeline_config.yaml --dry-run</pre>
+  </section>
+  <section>
+    <h2>Komponen ML</h2>
+    <p>Fase 3A memakai rule-based generation dan prompt export. Fase 3B memakai SSIM untuk visual regression. Fase 3C memakai fallback strategy chain untuk self-healing locator. Fase 3D memakai Isolation Forest untuk anomaly detection dari log.</p>
+  </section>
 </body>
 </html>
 """
+        dashboard_path.write_text(content, encoding="utf-8")
+        report_path = report_dir / "unified_dashboard.html"
+        report_path.write_text(content, encoding="utf-8")
+        return str(report_path)
 
-    def run_all(self) -> dict[str, Any]:
-        self.notifier.notify("Starting AI-assisted QA pipeline")
-        requirement_text = "User can login with valid credentials and sees an error for invalid credentials."
-        self.step_generate_tests(requirement_text)
-        self.step_run_tests()
-        self.step_visual_regression()
-        self.step_anomaly_detection()
-        self.step_generate_report()
+    def run_all(self) -> list[StepResult]:
+        steps = self.config.get("steps", {})
+        results: list[StepResult] = []
 
-        summary = self._summary_counts()
-        summary["results"] = [asdict(result) for result in self.results]
-        self.notifier.summary(summary)
-        return summary
+        if steps.get("run_test_generation", False):
+            results.append(self.step_generate_tests())
+        else:
+            results.append(StepResult("Generate Tests", "SKIP", 0.0, "", "disabled by config"))
+
+        if steps.get("run_unit_tests", False):
+            results.append(self.step_run_unit_tests())
+        else:
+            results.append(StepResult("Unit Tests", "SKIP", 0.0, "", "disabled by config"))
+
+        if steps.get("run_visual", False):
+            results.append(self.step_visual_regression())
+        else:
+            results.append(StepResult("Visual Regression", "SKIP", 0.0, "", "disabled by config"))
+
+        if steps.get("run_anomaly", False):
+            results.append(self.step_anomaly_detection())
+        else:
+            results.append(StepResult("Anomaly Detection", "SKIP", 0.0, "", "disabled by config"))
+
+        report_path = self.step_generate_report(results)
+        notify(results, report_path)
+        return results
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the full AI-assisted QA pipeline")
-    parser.add_argument("--config", default="pipeline_config.yaml", help="Path to pipeline YAML config")
-    parser.add_argument("--dry-run", action="store_true", help="Print planned steps without executing subprocesses")
+    parser = argparse.ArgumentParser(description="Run AI-assisted QA pipeline")
+    parser.add_argument("--config", default="pipeline_config.yaml", help="Path to pipeline config YAML")
+    parser.add_argument("--dry-run", action="store_true", help="Print steps without executing commands")
     args = parser.parse_args()
 
-    pipeline = QAPipeline(config_path=args.config, dry_run=args.dry_run)
-    summary = pipeline.run_all()
-    print(json.dumps({key: value for key, value in summary.items() if key != "results"}, indent=2))
+    pipeline = QAPipeline(args.config)
+    pipeline.dry_run = args.dry_run
+    pipeline.run_all()
 
 
 if __name__ == "__main__":
