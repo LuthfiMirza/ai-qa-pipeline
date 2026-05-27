@@ -35,8 +35,17 @@ def notify(results: list[Any], report_path: str) -> None:
 
     output = "\n".join(lines)
     print(output)
+    send_report_instructions(report_path)
 
     log_dir = Path("logs")
     log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     (log_dir / f"pipeline_{timestamp}.log").write_text(output + "\n", encoding="utf-8")
+
+
+def send_report_instructions(report_path: str) -> None:
+    path = Path(report_path)
+    size_kb = path.stat().st_size / 1024 if path.exists() else 0.0
+    print(f"Report ready: {report_path}")
+    print(f"File size  : {size_kb:.1f} KB")
+    print("Share via  : attach to email or upload to Google Drive")

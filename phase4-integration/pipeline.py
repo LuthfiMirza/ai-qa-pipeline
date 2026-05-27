@@ -186,14 +186,36 @@ class QAPipeline:
 
     def step_generate_report(self, all_results: list[StepResult]) -> str:
         report_dir = self.project_paths["report_dir"]
-        dashboard_path = report_dir / "dashboard.html"
         report_dir.mkdir(parents=True, exist_ok=True)
-        dashboard_path.parent.mkdir(parents=True, exist_ok=True)
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        run_date = time.strftime("%Y-%m-%d %H:%M:%S")
+        report_path = report_dir / f"report_{timestamp}.html"
+        latest_path = report_dir / "unified_dashboard.html"
 
         total = len(all_results)
         passed = sum(1 for result in all_results if result.status == "PASS")
         failed = sum(1 for result in all_results if result.status == "FAIL")
-        skipped = sum(1 for result in all_results if result.status == "SKIP")
+        duration_total = sum(result.duration_sec for result in all_results)
+        overall_status = "PASS" if failed == 0 else "FAIL"
+
+        issues = []
+        for result in all_results:
+            combined = f"{result.output}\n{result.error}".lower()
+            if result.status == "FAIL":
+                issues.append(f"{result.name}: {result.error or result.output or 'Step failed'}")
+            elif "anomaly windows: 0" not in combined and "anomaly windows:" in combined:
+                issues.append(f"{result.name}: anomaly windows detected")
+            elif "visual regression" in result.name.lower() and "fail" in combined:
+                issues.append(f"{result.name}: visual regression detected")
+
+        if failed > 0 and any("visual" in issue.lower() for issue in issues):
+            recommendation = "Visual changes detected. Review before deployment."
+        elif any("anomaly" in issue.lower() for issue in issues):
+            recommendation = "Anomaly patterns found in logs. Investigate server errors."
+        elif failed == 0:
+            recommendation = "All checks passed. Application is stable."
+        else:
+            recommendation = "Review failed checks before deployment."
 
         rows = "\n".join(
             "<tr>"
@@ -204,62 +226,77 @@ class QAPipeline:
             "</tr>"
             for result in all_results
         )
+        issues_html = "<p>No issues found</p>" if not issues else "<ul>" + "".join(
+            f"<li>{html.escape(issue)}</li>" for issue in issues
+        ) + "</ul>"
 
         content = f"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>AI-Assisted QA Pipeline Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QA Report — {html.escape(self.project_name)}</title>
   <style>
     body {{ font-family: Arial, sans-serif; margin: 32px; color: #1f2937; background: #f8fafc; }}
-    .summary {{ display: flex; gap: 12px; margin: 16px 0; }}
-    .card {{ background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; min-width: 120px; }}
-    .value {{ display: block; font-size: 28px; font-weight: 700; }}
-    table {{ width: 100%; border-collapse: collapse; background: #fff; }}
-    th, td {{ border: 1px solid #ddd; padding: 8px; vertical-align: top; }}
-    th {{ background: #f3f4f6; text-align: left; }}
+    header, section, footer {{ background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 18px; }}
+    h1, h2 {{ margin-top: 0; color: #111827; }}
+    .overall {{ display: inline-block; color: #fff; border-radius: 999px; padding: 6px 14px; font-weight: 700; }}
+    .overall.pass, .status.pass {{ background: #16a34a; }}
+    .overall.fail, .status.fail {{ background: #dc2626; }}
+    .status.skip {{ background: #6b7280; }}
+    .summary {{ display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; }}
+    .box {{ background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; }}
+    .value {{ display: block; font-size: 28px; font-weight: 700; margin-top: 6px; }}
+    table {{ width: 100%; border-collapse: collapse; }}
+    th, td {{ border: 1px solid #e5e7eb; padding: 10px; text-align: left; vertical-align: top; }}
+    th {{ background: #f3f4f6; }}
     .status {{ color: #fff; border-radius: 999px; padding: 4px 10px; font-weight: 700; }}
-    .pass {{ background: #16a34a; }}
-    .fail {{ background: #dc2626; }}
-    .skip {{ background: #6b7280; }}
-    pre {{ white-space: pre-wrap; background: #111827; color: #f9fafb; padding: 10px; border-radius: 6px; }}
+    pre {{ white-space: pre-wrap; max-height: 260px; overflow: auto; background: #111827; color: #f9fafb; padding: 12px; border-radius: 8px; }}
   </style>
 </head>
 <body>
-  <h1>AI-Assisted QA Pipeline Dashboard — {html.escape(self.project_name)}</h1>
+  <header>
+    <h1>QA Report — {html.escape(self.project_name)}</h1>
+    <p>Run date: {html.escape(run_date)}</p>
+    <p>Overall status: <span class="overall {overall_status.lower()}">{overall_status}</span></p>
+  </header>
+
   <section>
     <h2>Summary</h2>
     <div class="summary">
-      <div class="card">Total<span class="value">{total}</span></div>
-      <div class="card">Pass<span class="value">{passed}</span></div>
-      <div class="card">Fail<span class="value">{failed}</span></div>
-      <div class="card">Skip<span class="value">{skipped}</span></div>
+      <div class="box">Total Steps<span class="value">{total}</span></div>
+      <div class="box">Passed<span class="value">{passed}</span></div>
+      <div class="box">Failed<span class="value">{failed}</span></div>
+      <div class="box">Duration<span class="value">{duration_total:.1f}s</span></div>
     </div>
   </section>
+
   <section>
-    <h2>Step Results</h2>
+    <h2>Step Details</h2>
     <table>
       <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Output</th></tr></thead>
-      <tbody>
-        {rows}
-      </tbody>
+      <tbody>{rows}</tbody>
     </table>
   </section>
+
   <section>
-    <h2>Cara Jalankan Manual</h2>
-    <pre>python pipeline.py --config configs/project_demo.yaml
-python pipeline.py --config configs/client_baru.yaml --dry-run</pre>
+    <h2>Issues Found</h2>
+    {issues_html}
   </section>
+
   <section>
-    <h2>Komponen ML</h2>
-    <p>Fase 3A memakai rule-based generation dan prompt export. Fase 3B memakai SSIM untuk visual regression. Fase 3C memakai fallback strategy chain untuk self-healing locator. Fase 3D memakai Isolation Forest untuk anomaly detection dari log.</p>
+    <h2>Recommendations</h2>
+    <p>{html.escape(recommendation)}</p>
   </section>
+
+  <footer>
+    Generated by AI-Assisted QA Pipeline — {html.escape(run_date)}
+  </footer>
 </body>
 </html>
 """
-        dashboard_path.write_text(content, encoding="utf-8")
-        report_path = report_dir / "unified_dashboard.html"
         report_path.write_text(content, encoding="utf-8")
+        latest_path.write_text(content, encoding="utf-8")
         return str(report_path)
 
     def run_all(self) -> list[StepResult]:
