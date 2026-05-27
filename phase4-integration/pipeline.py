@@ -82,10 +82,16 @@ class QAPipeline:
         return self._run_command("Unit Tests", command, phase_dir)
 
     def step_visual_regression(self) -> StepResult:
-        phase_dir = self.root_dir / "phase3-ai" / "b-visual-regression"
-        target_url = self.config.get("target_urls", ["https://example.com"])[0]
-        command = [sys.executable, "screenshot_runner.py", "--url", target_url, "--mode", "compare"]
-        return self._run_command("Visual Regression", command, phase_dir)
+        urls_file = "../phase3-ai/b-visual-regression/urls.txt"
+        command = [
+            sys.executable,
+            "../phase3-ai/b-visual-regression/screenshot_runner.py",
+            "--urls-file",
+            urls_file,
+            "--mode",
+            "compare",
+        ]
+        return self._run_command("Visual Regression", command, self.phase4_dir)
 
     def step_anomaly_detection(self) -> StepResult:
         phase_dir = self.root_dir / "phase3-ai" / "d-anomaly-detection"

@@ -11,6 +11,6 @@ paths:
 steps:
   run_test_generation: true
   run_unit_tests: true
-  run_visual: false
+  run_visual: true
   run_anomaly: true
 sample_requirement: "User dapat login dengan email dan password"
