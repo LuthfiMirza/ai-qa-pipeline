@@ -1,5 +1,11 @@
 import pytest
-from playwright.sync_api import Page, expect
+
+try:
+    from playwright.sync_api import Page, expect
+except ModuleNotFoundError:
+    Page = object
+    expect = None
+    pytestmark = pytest.mark.skip(reason="playwright is not installed")
 
 LOGIN_URL = "https://practicetestautomation.com/practice-test-login/"
 VALID_USERNAME = "student"
