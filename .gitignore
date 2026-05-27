@@ -33,3 +33,8 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Generated test outputs
+phase3-ai/a-test-generation/examples/generated_tests/*.json
+phase3-ai/a-test-generation/examples/generated_tests/*_prompt.md
+!phase3-ai/a-test-generation/examples/generated_tests/example_output.json
