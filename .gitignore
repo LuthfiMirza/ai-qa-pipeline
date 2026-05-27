@@ -19,3 +19,16 @@ test-results/
 .DS_Store
 .vscode/
 .idea/
+
+# ML generated artifacts
+models/
+*.pkl
+
+# Runtime logs
+logs/
+*.log
+
+# Generated test outputs
+phase3-ai/a-test-generation/examples/generated_tests/*.json
+phase3-ai/a-test-generation/examples/generated_tests/*_prompt.md
+!phase3-ai/a-test-generation/examples/generated_tests/.gitkeep
