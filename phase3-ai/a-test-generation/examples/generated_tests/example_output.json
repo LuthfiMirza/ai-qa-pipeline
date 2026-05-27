@@ -1,0 +1,47 @@
+[
+  {
+    "test_name": "test_login_valid_credentials",
+    "description": "User berhasil login dengan email dan password valid",
+    "category": "happy_path",
+    "steps": [
+      "Buka halaman login",
+      "Masukkan email valid",
+      "Masukkan password valid",
+      "Klik tombol login"
+    ],
+    "assertions": [
+      "User berhasil login",
+      "User diarahkan ke dashboard"
+    ]
+  },
+  {
+    "test_name": "test_login_invalid_password",
+    "description": "User tidak dapat login dengan password salah",
+    "category": "negative",
+    "steps": [
+      "Buka halaman login",
+      "Masukkan email valid",
+      "Masukkan password salah",
+      "Klik tombol login"
+    ],
+    "assertions": [
+      "User gagal login",
+      "Pesan error kredensial tampil"
+    ]
+  },
+  {
+    "test_name": "test_login_empty_fields",
+    "description": "Sistem menampilkan validasi saat email dan password kosong",
+    "category": "edge_case",
+    "steps": [
+      "Buka halaman login",
+      "Kosongkan field email",
+      "Kosongkan field password",
+      "Klik tombol login"
+    ],
+    "assertions": [
+      "User gagal login",
+      "Validasi field wajib tampil"
+    ]
+  }
+]

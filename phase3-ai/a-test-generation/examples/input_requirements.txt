@@ -1,0 +1,1 @@
+User dapat login dengan email dan password. Jika email atau password salah, sistem menampilkan pesan error. Jika field kosong, sistem menampilkan validasi field wajib.

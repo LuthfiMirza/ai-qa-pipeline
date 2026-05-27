@@ -63,17 +63,23 @@ def build_prompt(requirement: str, test_cases: list[dict[str, object]]) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Zero-API rule-based test generator with prompt export")
-    parser.add_argument("--requirement", required=True, help="Requirement text")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--requirement", help="Requirement text")
+    source.add_argument("--requirement-file", help="Path to a text file containing requirement text")
     parser.add_argument("--export-prompt", action="store_true", help="Export ChatGPT-ready prompt")
     parser.add_argument("--json-only", action="store_true", help="Write JSON output only")
     parser.add_argument("--output-dir", default="examples/generated_tests", help="Output directory")
     args = parser.parse_args()
 
+    requirement = args.requirement
+    if args.requirement_file:
+        requirement = Path(args.requirement_file).read_text(encoding="utf-8").strip()
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    slug = slugify(args.requirement)
-    test_cases = build_test_cases(args.requirement)
+    slug = slugify(requirement)
+    test_cases = build_test_cases(requirement)
 
     json_path = output_dir / f"{slug}_{timestamp}.json"
     json_path.write_text(json.dumps(test_cases, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -81,7 +87,7 @@ def main() -> None:
 
     if args.export_prompt:
         prompt_path = output_dir / f"{slug}_{timestamp}_prompt.md"
-        prompt_path.write_text(build_prompt(args.requirement, test_cases), encoding="utf-8")
+        prompt_path.write_text(build_prompt(requirement, test_cases), encoding="utf-8")
         print(f"Prompt exported: {prompt_path}")
 
     if not args.json_only:
