@@ -22,7 +22,7 @@ Sistem QA otomatis berbasis ML — berjalan lokal, tanpa API berbayar.
 python -m venv venv
 source venv/bin/activate
 pip install -r phase4-integration/requirements.txt
-python phase4-integration/pipeline.py --config phase4-integration/pipeline_config.yaml
+python pipeline.py --config configs/project_demo.yaml
 ```
 
 ## Cara Jalankan Per Fase
@@ -33,7 +33,7 @@ python phase4-integration/pipeline.py --config phase4-integration/pipeline_confi
 - Fase 3B: bandingkan screenshot UI. `cd phase3-ai/b-visual-regression && python screenshot_runner.py --url https://example.com --mode compare`
 - Fase 3C: jalankan self-healing locator. `cd phase3-ai/c-self-healing && python healing_wrapper.py`
 - Fase 3D: deteksi anomali log. `cd phase3-ai/d-anomaly-detection && python anomaly_detector.py --log sample_logs/app.log`
-- Fase 4: orchestrator penuh. `cd phase4-integration && python pipeline.py --config pipeline_config.yaml`
+- Fase 4: orchestrator penuh. `python pipeline.py --config configs/project_demo.yaml`
 
 ## Komponen ML
 

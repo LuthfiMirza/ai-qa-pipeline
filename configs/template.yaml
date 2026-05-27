@@ -1,0 +1,21 @@
+project_name: "Nama Project Client"
+project_url: "https://url-client.com"
+target_urls:
+  - https://url-client.com/login
+  - https://url-client.com/dashboard
+thresholds:
+  ssim: 0.95
+  anomaly_contamination: 0.05
+  max_error_rate: 0.10
+paths:
+  baseline_dir: baselines/{project_name}
+  log_dir: logs/{project_name}
+  report_dir: reports/{project_name}
+steps:
+  run_test_generation: true
+  run_unit_tests: true
+  run_visual: true
+  run_self_healing: true
+  run_anomaly: true
+requirements:
+  - "Deskripsi fitur yang akan dites"

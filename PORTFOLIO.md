@@ -35,7 +35,7 @@ Unified Report
 git clone https://github.com/LuthfiMirza/ai-qa-pipeline.git
 cd ai-qa-pipeline
 pip install -r phase4-integration/requirements.txt
-python phase4-integration/pipeline.py --config phase4-integration/pipeline_config.yaml
+python pipeline.py --config configs/project_demo.yaml
 ```
 
 ## What I Learned

@@ -27,8 +27,7 @@ jobs:
           python -m playwright install chromium
 
       - name: Run pipeline
-        working-directory: phase4-integration
-        run: python pipeline.py --config pipeline_config.yaml
+        run: python pipeline.py --config configs/project_demo.yaml
 
       - name: Upload reports
         uses: actions/upload-artifact@v4

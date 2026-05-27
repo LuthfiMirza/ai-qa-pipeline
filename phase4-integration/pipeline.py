@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 import subprocess
 import sys
 import time
@@ -31,19 +32,43 @@ class QAPipeline:
         if not self.config_path.is_absolute():
             self.config_path = (Path.cwd() / self.config_path).resolve()
         self.config = self._load_config(self.config_path)
+        self.project_name = self._slugify_project_name(self.config.get("project_name", "default_project"))
+        self.config["project_name"] = self.project_name
         self.dry_run = False
+        self.project_paths = self._resolve_project_paths()
+        for project_path in self.project_paths.values():
+            project_path.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def _load_config(config_path: Path) -> dict:
         with config_path.open("r", encoding="utf-8") as file:
             return yaml.safe_load(file) or {}
 
+    @staticmethod
+    def _slugify_project_name(project_name: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9_-]+", "_", project_name.strip()).strip("_") or "default_project"
+
+    def _format_project_path(self, value: str) -> Path:
+        formatted = value.format(project_name=self.project_name)
+        raw_path = Path(formatted)
+        if raw_path.is_absolute():
+            return raw_path
+        return (self.phase4_dir / raw_path).resolve()
+
+    def _resolve_project_paths(self) -> dict[str, Path]:
+        paths = self.config.get("paths", {})
+        return {
+            "baseline_dir": self._format_project_path(paths.get("baseline_dir", "baselines/{project_name}")),
+            "log_dir": self._format_project_path(paths.get("log_dir", "logs/{project_name}")),
+            "report_dir": self._format_project_path(paths.get("report_dir", "reports/{project_name}")),
+        }
+
     def _run_command(self, name: str, command: list[str], cwd: Path) -> StepResult:
         started = time.perf_counter()
         command_text = " ".join(command)
 
         if self.dry_run:
-            print(f"DRY-RUN {name}: cd {cwd} && {command_text}")
+            print(f"DRY-RUN [{self.project_name}] {name}: cd {cwd} && {command_text}")
             return StepResult(name=name, status="SKIP", duration_sec=0.0, output=command_text, error="dry-run")
 
         if not cwd.exists():
@@ -66,7 +91,8 @@ class QAPipeline:
 
     def step_generate_tests(self) -> StepResult:
         phase_dir = self.root_dir / "phase3-ai" / "a-test-generation"
-        requirement = self.config.get("sample_requirement", "User dapat login dengan email dan password")
+        requirements = self.config.get("requirements") or [self.config.get("sample_requirement", "User dapat login dengan email dan password")]
+        requirement = requirements[0]
         command = [
             sys.executable,
             "generator.py",
@@ -83,14 +109,23 @@ class QAPipeline:
         return self._run_command("Unit Tests", command, phase_dir)
 
     def step_visual_regression(self) -> StepResult:
-        urls_file = "../phase3-ai/b-visual-regression/urls.txt"
+        urls_file = self.project_paths["baseline_dir"] / "urls.txt"
+        urls_file.write_text("\n".join(self.config.get("target_urls", [])) + "\n", encoding="utf-8")
         command = [
             sys.executable,
             "../phase3-ai/b-visual-regression/screenshot_runner.py",
             "--urls-file",
-            urls_file,
+            str(urls_file),
             "--mode",
             "compare",
+            "--baseline-dir",
+            str(self.project_paths["baseline_dir"]),
+            "--current-dir",
+            str(self.project_paths["baseline_dir"] / "current"),
+            "--diff-dir",
+            str(self.project_paths["baseline_dir"] / "diffs"),
+            "--report-dir",
+            str(self.project_paths["report_dir"]),
         ]
         return self._run_command("Visual Regression", command, self.phase4_dir)
 
@@ -102,7 +137,7 @@ class QAPipeline:
         command_text = " ".join(command)
 
         if self.dry_run:
-            print(f"DRY-RUN Self-Healing Test: cd {phase_dir} && {command_text}")
+            print(f"DRY-RUN [{self.project_name}] Self-Healing Test: cd {phase_dir} && {command_text}")
             return StepResult("Self-Healing Test", "SKIP", 0.0, command_text, "dry-run")
 
         if not phase_dir.exists():
@@ -132,7 +167,7 @@ class QAPipeline:
 
     def step_anomaly_detection(self) -> StepResult:
         phase_dir = self.root_dir / "phase3-ai" / "d-anomaly-detection"
-        log_path = phase_dir / "sample_logs" / "app.log"
+        log_path = self.project_paths["log_dir"] / "app.log"
         if not self.dry_run and not log_path.exists():
             generate_result = self._run_command("Generate Sample Log", [sys.executable, "generate_sample_log.py"], phase_dir)
             if generate_result.status != "PASS":
@@ -143,12 +178,15 @@ class QAPipeline:
                     output=generate_result.output,
                     error=generate_result.error,
                 )
+            generated_log = phase_dir / "sample_logs" / "app.log"
+            if generated_log.exists():
+                log_path.write_text(generated_log.read_text(encoding="utf-8"), encoding="utf-8")
         command = [sys.executable, "anomaly_detector.py", "--log", str(log_path)]
         return self._run_command("Anomaly Detection", command, phase_dir)
 
     def step_generate_report(self, all_results: list[StepResult]) -> str:
-        report_dir = self.phase4_dir / self.config.get("paths", {}).get("report_dir", "reports")
-        dashboard_path = self.phase4_dir / "dashboard" / "index.html"
+        report_dir = self.project_paths["report_dir"]
+        dashboard_path = report_dir / "dashboard.html"
         report_dir.mkdir(parents=True, exist_ok=True)
         dashboard_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -188,7 +226,7 @@ class QAPipeline:
   </style>
 </head>
 <body>
-  <h1>AI-Assisted QA Pipeline Dashboard</h1>
+  <h1>AI-Assisted QA Pipeline Dashboard — {html.escape(self.project_name)}</h1>
   <section>
     <h2>Summary</h2>
     <div class="summary">
@@ -209,8 +247,8 @@ class QAPipeline:
   </section>
   <section>
     <h2>Cara Jalankan Manual</h2>
-    <pre>python phase4-integration/pipeline.py --config phase4-integration/pipeline_config.yaml
-python phase4-integration/pipeline.py --config phase4-integration/pipeline_config.yaml --dry-run</pre>
+    <pre>python pipeline.py --config configs/project_demo.yaml
+python pipeline.py --config configs/client_baru.yaml --dry-run</pre>
   </section>
   <section>
     <h2>Komponen ML</h2>
@@ -260,7 +298,7 @@ python phase4-integration/pipeline.py --config phase4-integration/pipeline_confi
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run AI-assisted QA pipeline")
-    parser.add_argument("--config", default="pipeline_config.yaml", help="Path to pipeline config YAML")
+    parser.add_argument("--config", default="configs/project_demo.yaml", help="Path to pipeline config YAML")
     parser.add_argument("--dry-run", action="store_true", help="Print steps without executing commands")
     args = parser.parse_args()
 

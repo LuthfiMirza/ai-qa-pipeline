@@ -1,3 +1,5 @@
+project_name: "project_demo"
+project_url: "https://practicetestautomation.com"
 target_urls:
   - https://practicetestautomation.com/practice-test-login/
 thresholds:
@@ -5,13 +7,14 @@ thresholds:
   anomaly_contamination: 0.05
   max_error_rate: 0.10
 paths:
-  baseline_dir: ../phase3-ai/b-visual-regression/baselines
-  log_dir: logs
-  report_dir: reports
+  baseline_dir: baselines/{project_name}
+  log_dir: logs/{project_name}
+  report_dir: reports/{project_name}
 steps:
   run_test_generation: true
   run_unit_tests: true
   run_visual: true
   run_self_healing: true
   run_anomaly: true
-sample_requirement: "User dapat login dengan email dan password"
+requirements:
+  - "User dapat login dengan email dan password"
