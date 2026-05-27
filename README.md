@@ -1,3 +1,5 @@
+[![CI](https://github.com/LuthfiMirza/ai-qa-pipeline/actions/workflows/full_pipeline.yml/badge.svg)](https://github.com/LuthfiMirza/ai-qa-pipeline/actions)
+
 # AI-Assisted QA Pipeline
 
 Sistem QA otomatis berbasis ML — berjalan lokal, tanpa API berbayar.
@@ -41,6 +43,13 @@ python phase4-integration/pipeline.py --config phase4-integration/pipeline_confi
 | Visual regression | SSIM image comparison | OpenCV, scikit-image | `phase3-ai/b-visual-regression/visual_comparator.py` |
 | Self-healing locator | Fallback chain + similarity | sentence-transformers | `phase3-ai/c-self-healing/healing_wrapper.py` |
 | Log anomaly detection | Isolation Forest | scikit-learn, pandas | `phase3-ai/d-anomaly-detection/anomaly_detector.py` |
+
+## Hasil Pipeline Terakhir
+
+- Unit Tests: 12 passed
+- Test Generator: menghasilkan 4 test case dari 1 requirement
+- Anomaly Detection: diuji dengan 2000 baris log, terdeteksi 17 anomali
+- Visual Regression: belum aktif (`run_visual: false`)
 
 ## Workflow AI Tanpa API
 
