@@ -1,35 +1,35 @@
 # Python
 __pycache__/
-*.py[cod]
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Virtual environments
-venv/
+*.pyc
+*.pyo
 .venv/
+venv/
+*.egg-info/
 
-# Test outputs
-reports/
-screenshots/
-playwright-report/
+# Runtime artifacts — jangan di-commit
+*.log
+*.pkl
+*.joblib
+
+# Report output — di-generate saat runtime
+phase1-foundation/reports/
+phase2-automation/reports/
+phase3-ai/b-visual-regression/current/
+phase3-ai/b-visual-regression/diffs/
+phase3-ai/b-visual-regression/reports/
+phase3-ai/d-anomaly-detection/models/
+phase3-ai/d-anomaly-detection/reports/
+phase4-integration/reports/
+phase4-integration/logs/
+
+# Playwright
 test-results/
+playwright-report/
 
-# OS/editor
+# OS
 .DS_Store
+Thumbs.db
+
+# Editor
 .vscode/
 .idea/
-
-# ML generated artifacts
-models/
-*.pkl
-
-# Runtime logs
-logs/
-*.log
-
-# Generated test outputs
-phase3-ai/a-test-generation/examples/generated_tests/*.json
-phase3-ai/a-test-generation/examples/generated_tests/*_prompt.md
-!phase3-ai/a-test-generation/examples/generated_tests/.gitkeep
-!phase3-ai/a-test-generation/examples/generated_tests/example_output.json
