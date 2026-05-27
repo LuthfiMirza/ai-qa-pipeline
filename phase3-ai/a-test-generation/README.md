@@ -73,3 +73,24 @@ examples/generated_tests/
 ├── requirement_slug_TIMESTAMP.json  # hasil test case dari generator
 └── requirement_slug_TIMESTAMP_prompt.md # prompt untuk ChatGPT jika --export-prompt dipakai
 ```
+
+## Import Hasil ChatGPT
+
+Workflow import hasil ChatGPT:
+
+1. Jalankan generator dengan `--export-prompt` untuk membuat prompt siap copy.
+2. Paste prompt ke ChatGPT Plus dan minta output JSON sesuai format yang diminta.
+3. Simpan hasil JSON ke file, misalnya `examples/chatgpt_output_example.json`.
+4. Jalankan importer untuk mengubah JSON menjadi skeleton Pytest.
+
+```bash
+python importer.py --file examples/chatgpt_output_example.json --output examples/generated_tests/
+```
+
+Importer juga bisa membaca JSON langsung dari stdin:
+
+```bash
+cat examples/chatgpt_output_example.json | python importer.py --stdin
+```
+
+File Pytest yang dihasilkan memakai marker `@pytest.mark.generated`, berisi docstring langkah dan expected result, serta placeholder `pass` agar langsung bisa dijalankan tanpa error sebelum implementasi detail diisi.

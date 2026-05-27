@@ -1,0 +1,35 @@
+[
+  {
+    "test_name": "test_login_valid_credentials",
+    "description": "Verify that a registered user can log in with valid email and password.",
+    "steps": [
+      "Open the login page",
+      "Enter a valid email address",
+      "Enter the matching valid password",
+      "Click the login button"
+    ],
+    "expected_result": "The user is authenticated and redirected to the dashboard."
+  },
+  {
+    "test_name": "test_login_invalid_password",
+    "description": "Verify that the system rejects login when the password is incorrect.",
+    "steps": [
+      "Open the login page",
+      "Enter a valid email address",
+      "Enter an invalid password",
+      "Click the login button"
+    ],
+    "expected_result": "The user remains on the login page and sees an invalid credentials message."
+  },
+  {
+    "test_name": "test_login_empty_required_fields",
+    "description": "Verify that required field validation appears when login fields are empty.",
+    "steps": [
+      "Open the login page",
+      "Leave the email field empty",
+      "Leave the password field empty",
+      "Click the login button"
+    ],
+    "expected_result": "The system displays required field validation and does not submit the form."
+  }
+]
