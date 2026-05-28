@@ -1,0 +1,20 @@
+project_name: demo-client
+project_url: https://practicetestautomation.com
+target_urls:
+- https://practicetestautomation.com/practice-test-login/
+thresholds:
+  ssim: 0.95
+  anomaly_contamination: 0.05
+  max_error_rate: 0.1
+paths:
+  baseline_dir: ../phase3-ai/b-visual-regression/baselines/demo-client
+  log_dir: logs/demo-client
+  report_dir: reports/demo-client
+steps:
+  run_test_generation: true
+  run_unit_tests: true
+  run_visual: true
+  run_self_healing: true
+  run_anomaly: true
+requirements:
+- Test halaman https://practicetestautomation.com/practice-test-login/
