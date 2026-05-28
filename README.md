@@ -25,6 +25,28 @@ pip install -r phase4-integration/requirements.txt
 python pipeline.py --config configs/project_demo.yaml
 ```
 
+## Untuk Project Freelance
+
+Setup project client baru:
+
+```bash
+python scripts/new_project.py
+```
+
+Jalankan QA:
+
+```bash
+python pipeline.py --config configs/nama-client.yaml
+```
+
+Report siap dikirim ke client:
+
+```text
+phase4-integration/reports/nama-client/report_TIMESTAMP.html
+```
+
+Setiap client punya folder terpisah — baseline, log, dan report tidak saling overwrite antar project.
+
 ## Cara Jalankan Per Fase
 
 - Fase 1: test kalkulator dan UI starter. `cd phase1-foundation && python -m pytest tests/test_calculator.py -v`
@@ -49,7 +71,7 @@ python pipeline.py --config configs/project_demo.yaml
 - Unit Tests: 12 passed
 - Test Generator: menghasilkan 4 test case dari 1 requirement
 - Anomaly Detection: diuji dengan 2000 baris log, terdeteksi 17 anomali
-- Visual Regression: belum aktif (`run_visual: false`)
+- Visual Regression: aktif dan masuk pipeline penuh
 
 ## Workflow AI Tanpa API
 
