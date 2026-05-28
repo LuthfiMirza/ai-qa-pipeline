@@ -119,7 +119,7 @@ Setiap client punya folder terpisah — baseline, log, dan report tidak pernah s
 
 | Komponen | Teknik | Library | Cara Kerja Singkat |
 |---|---|---|---|
-| Test generation | Rule-based + prompt export | Python stdlib | Baca requirement, generate test case, export prompt untuk ChatGPT |
+| Test generation | Rule-based + prompt export | Python stdlib | Baca requirement, generate test case, export prompt untuk AI assistant |
 | Visual regression | SSIM image comparison | OpenCV, scikit-image | Bandingkan screenshot piksel per piksel, highlight area yang berubah |
 | Self-healing locator | Fallback chain | Playwright | Kalau selector berubah, coba strategi lain secara otomatis |
 | Log anomaly detection | Isolation Forest | scikit-learn, pandas | Deteksi pola aneh di log yang mungkin jadi bug |
@@ -133,9 +133,9 @@ Requirement
 ↓
 generator.py membuat draft test case + prompt terstruktur
 ↓
-Prompt di-copy ke ChatGPT Plus (manual, pakai akun sendiri)
+Prompt di-copy ke AI assistant pilihanmu (manual, pakai akun sendiri)
 ↓
-Hasil JSON dari ChatGPT di-paste ke folder generated_tests/
+Hasil JSON dari AI assistant di-paste ke folder generated_tests/
 ↓
 importer.py konversi JSON jadi file Pytest yang valid
 ↓
